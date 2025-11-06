@@ -12,6 +12,7 @@ echo "========================================="
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Detect OS
@@ -24,16 +25,38 @@ fi
 
 echo -e "${BLUE}Detected OS: $OS${NC}"
 
+# Detect Linux package manager
+PKG_MANAGER="unknown"
+if [[ "$OS" == "linux" ]]; then
+    if command -v apt &> /dev/null; then
+        PKG_MANAGER="apt"
+    elif command -v dnf &> /dev/null; then
+        PKG_MANAGER="dnf"
+    elif command -v yum &> /dev/null; then
+        PKG_MANAGER="yum"
+    fi
+    echo -e "${BLUE}Package manager: $PKG_MANAGER${NC}"
+fi
+
 # Install prerequisites
 echo -e "\n${BLUE}Installing prerequisites...${NC}"
 if [[ "$OS" == "linux" ]]; then
-    sudo apt update
-    sudo apt install -y git curl build-essential zsh
+    if [[ "$PKG_MANAGER" == "apt" ]]; then
+        sudo apt update
+        sudo apt install -y git curl build-essential zsh
+    elif [[ "$PKG_MANAGER" == "dnf" ]]; then
+        sudo dnf install -y git curl gcc gcc-c++ make zsh
+    elif [[ "$PKG_MANAGER" == "yum" ]]; then
+        sudo yum install -y git curl gcc gcc-c++ make zsh
+    else
+        echo -e "${RED}Error: No supported package manager found${NC}"
+        exit 1
+    fi
 
     # Install Neovim latest
     echo -e "${BLUE}Installing Neovim...${NC}"
     if [ ! -d "/opt/nvim" ]; then
-        wget -q https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
+        curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
         tar xzf nvim-linux64.tar.gz
         sudo mv nvim-linux64 /opt/nvim
         rm nvim-linux64.tar.gz
@@ -42,6 +65,9 @@ if [[ "$OS" == "linux" ]]; then
     # Add to PATH if not already there
     if ! grep -q "/opt/nvim/bin" ~/.bashrc; then
         echo 'export PATH="/opt/nvim/bin:$PATH"' >> ~/.bashrc
+    fi
+    if ! grep -q "/opt/nvim/bin" ~/.zshrc 2>/dev/null; then
+        echo 'export PATH="/opt/nvim/bin:$PATH"' >> ~/.zshrc
     fi
 
 elif [[ "$OS" == "macos" ]]; then
